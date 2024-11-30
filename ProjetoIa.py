@@ -1,6 +1,6 @@
 import requests
 import pandas as pd
-from sklearn.cluster import KMeans
+from sklearn.cluster import MeanShift
 from sklearn.preprocessing import MinMaxScaler
 
 # Configuração da API
@@ -89,19 +89,19 @@ def preparar_dados_para_recomendacao(populares, avaliacoes_generos):
     scaler = MinMaxScaler()  # Cria o objeto MinMaxScaler para normalização
     # Normaliza as colunas de pontuação do usuário e número de votos
     df[['pontuacao_usuario_normalizada', 'vote_count_normalizado']] = scaler.fit_transform(df[['pontuacao_usuario', 'vote_count']])
-    # Calcula a pontuação final com pesos iguais (50% para cada)
-    df['pontuacao_final'] = df['pontuacao_usuario_normalizada'] * 0.5 + df['vote_count_normalizado'] * 0.5
+    # Ajusta os pesos: 70% para pontuação do usuário e 30% para popularidade
+    df['pontuacao_final'] = df['pontuacao_usuario_normalizada'] * 0.7 + df['vote_count_normalizado'] * 0.3
     return df
 
 def recomendar_por_clustering(itens_df):
     """
-    Usa o algoritmo K-Means para agrupar os itens e recomenda os itens do cluster mais relevante.
+    Usa o algoritmo MeanShift para agrupar os itens e recomenda os itens do cluster mais relevante.
     O cluster é escolhido com base na maior média de pontuação final.
     Retorna um DataFrame com os itens recomendados.
     """
-    kmeans = KMeans(n_clusters=3, random_state=0)  # Configura o K-Means com 3 clusters
+    mean_shift = MeanShift()  # Configura o algoritmo MeanShift
     # Aplica o clustering baseado na pontuação final
-    itens_df['cluster'] = kmeans.fit_predict(itens_df[['pontuacao_final']])
+    itens_df['cluster'] = mean_shift.fit_predict(itens_df[['pontuacao_final']])
     # Calcula a média da pontuação final dentro de cada cluster
     cluster_medias = itens_df.groupby('cluster')['pontuacao_final'].mean()
     cluster_alvo = cluster_medias.idxmax()  # Identifica o cluster com a maior média
@@ -109,6 +109,8 @@ def recomendar_por_clustering(itens_df):
     itens_recomendados = itens_df[itens_df['cluster'] == cluster_alvo]
     # Ordena os itens recomendados por avaliação média, do maior para o menor
     itens_recomendados = itens_recomendados.sort_values(by='vote_average', ascending=False)
+    # Filtro: Remove itens com pontuação do usuário muito baixa
+    itens_recomendados = itens_recomendados[itens_recomendados['pontuacao_usuario'] > 10]
     return itens_recomendados[['title', 'vote_average', 'vote_count', 'pontuacao_usuario', 'pontuacao_final']]
 
 # Fluxo principal
@@ -119,7 +121,7 @@ avaliacoes_generos = obter_avaliacoes_generos(generos)  # Solicita ao usuário a
 populares = buscar_populares(tipo_api)  # Busca filmes ou séries populares da API
 dados_para_recomendacao = preparar_dados_para_recomendacao(populares, avaliacoes_generos)  # Prepara os dados para recomendação
 itens_recomendados = recomendar_por_clustering(dados_para_recomendacao)  # Aplica o clustering e recomenda os itens
-# Renomeia as colunas para exibição em português
+
 itens_recomendados.rename(columns={
     'title': 'Título',
     'vote_average': 'Avaliação',
@@ -128,6 +130,6 @@ itens_recomendados.rename(columns={
     'pontuacao_final': 'Pontuação Final'
 }, inplace=True)
 itens_recomendados = itens_recomendados.head(10)  # Limita a lista a no máximo 10 itens
-# Exibe os itens recomendados
+
 print("\nItens recomendados para você:")
 print(itens_recomendados.to_string(index=False))
