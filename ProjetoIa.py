@@ -7,7 +7,7 @@ from sklearn.preprocessing import MinMaxScaler
 CHAVE_API = '63389e0432c7e14f46d1d6d25e24dff6'  # Chave para acessar a API TMDb
 URL_BASE = 'https://api.themoviedb.org/3'  # URL base da API
 
-def obter_generos(tipo):
+def obterGenero(tipo):
     """
     Obtém a lista de gêneros de filmes ou séries da API TMDb.
     Retorna um dicionário onde a chave é o nome do gênero e o valor é o ID do gênero.
@@ -15,14 +15,10 @@ def obter_generos(tipo):
     url = f"{URL_BASE}/genre/{tipo}/list"  # Endpoint para gêneros
     params = {'api_key': CHAVE_API, 'language': 'pt-BR'}  # Parâmetros da API
     response = requests.get(url, params=params)  # Faz a requisição para a API
-    if response.status_code == 200:
-        generos = response.json()['genres']  # Extrai os gêneros da resposta
-        return {genero['name']: genero['id'] for genero in generos}  # Retorna os gêneros como um dicionário
-    else:
-        print(f"Erro ao acessar a API para buscar lista de gêneros de {tipo}.")
-        return {}
+    generos = response.json()['genres']  # Extrai os gêneros da resposta
+    return {genero['name']: genero['id'] for genero in generos}  # Retorna os gêneros como um dicionário
 
-def buscar_populares(tipo):
+def buscaPopular(tipo):
     """
     Busca uma lista de filmes ou séries populares e bem avaliados da API.
     Retorna os resultados como uma lista de dicionários.
@@ -37,13 +33,9 @@ def buscar_populares(tipo):
         'page': 1  # Apenas a primeira página de resultados
     }
     response = requests.get(url, params=params)  # Faz a requisição para a API
-    if response.status_code == 200:
-        return response.json()['results']  # Retorna os itens populares
-    else:
-        print(f"Erro ao acessar a API para buscar populares de {tipo}.")
-        return []
+    return response.json()['results']  # Retorna os itens populares diretamente
 
-def obter_avaliacoes_generos(generos):
+def avaliacao(generos):
     """
     Solicita ao usuário para avaliar de 0 a 10 o quanto gosta de cada gênero.
     Retorna um dicionário onde a chave é o ID do gênero e o valor é a nota dada pelo usuário.
@@ -63,7 +55,7 @@ def obter_avaliacoes_generos(generos):
                 print("Entrada inválida! Digite um número entre 0 e 10.")
     return avaliacoes
 
-def preparar_dados_para_recomendacao(populares, avaliacoes_generos):
+def recomendacao(populares, avaliacoes_generos):
     """
     Prepara os dados dos filmes ou séries para recomendação com base nas avaliações do usuário.
     Cada item recebe uma pontuação personalizada com base na afinidade do usuário para os gêneros.
@@ -89,11 +81,13 @@ def preparar_dados_para_recomendacao(populares, avaliacoes_generos):
     scaler = MinMaxScaler()  # Cria o objeto MinMaxScaler para normalização
     # Normaliza as colunas de pontuação do usuário e número de votos
     df[['pontuacao_usuario_normalizada', 'vote_count_normalizado']] = scaler.fit_transform(df[['pontuacao_usuario', 'vote_count']])
-    # Ajusta os pesos: 70% para pontuação do usuário e 30% para popularidade
-    df['pontuacao_final'] = df['pontuacao_usuario_normalizada'] * 0.7 + df['vote_count_normalizado'] * 0.3
+    # Calcula a pontuação final com pesos ajustados
+    df['pontuacao_final'] = df['pontuacao_usuario_normalizada'] * 0.85 + df['vote_count_normalizado'] * 0.15
+    # Arredonda a pontuação final para 2 casas decimais
+    df['pontuacao_final'] = df['pontuacao_final'].round(2)
     return df
 
-def recomendar_por_clustering(itens_df):
+def agrupamento(itens_df):
     """
     Usa o algoritmo MeanShift para agrupar os itens e recomenda os itens do cluster mais relevante.
     O cluster é escolhido com base na maior média de pontuação final.
@@ -109,19 +103,17 @@ def recomendar_por_clustering(itens_df):
     itens_recomendados = itens_df[itens_df['cluster'] == cluster_alvo]
     # Ordena os itens recomendados por avaliação média, do maior para o menor
     itens_recomendados = itens_recomendados.sort_values(by='vote_average', ascending=False)
-    # Filtro: Remove itens com pontuação do usuário muito baixa
-    itens_recomendados = itens_recomendados[itens_recomendados['pontuacao_usuario'] > 10]
     return itens_recomendados[['title', 'vote_average', 'vote_count', 'pontuacao_usuario', 'pontuacao_final']]
 
 # Fluxo principal
 tipo = input("Deseja recomendação de 'filme' ou 'série'? ").strip().lower()
 tipo_api = 'movie' if tipo == 'filme' else 'tv'  # Define o tipo com base na escolha do usuário
-generos = obter_generos(tipo_api)  # Obtém os gêneros disponíveis
-avaliacoes_generos = obter_avaliacoes_generos(generos)  # Solicita ao usuário as avaliações dos gêneros
-populares = buscar_populares(tipo_api)  # Busca filmes ou séries populares da API
-dados_para_recomendacao = preparar_dados_para_recomendacao(populares, avaliacoes_generos)  # Prepara os dados para recomendação
-itens_recomendados = recomendar_por_clustering(dados_para_recomendacao)  # Aplica o clustering e recomenda os itens
-
+generos = obterGenero(tipo_api)  # Obtém os gêneros disponíveis
+avaliacoes_generos = avaliacao(generos)  # Solicita ao usuário as avaliações dos gêneros
+populares = buscaPopular(tipo_api)  # Busca filmes ou séries populares da API
+dados_para_recomendacao = recomendacao(populares, avaliacoes_generos)  # Prepara os dados para recomendação
+itens_recomendados = agrupamento(dados_para_recomendacao)  # Aplica o clustering e recomenda os itens
+# Renomeia as colunas para exibição em português
 itens_recomendados.rename(columns={
     'title': 'Título',
     'vote_average': 'Avaliação',
@@ -130,6 +122,6 @@ itens_recomendados.rename(columns={
     'pontuacao_final': 'Pontuação Final'
 }, inplace=True)
 itens_recomendados = itens_recomendados.head(10)  # Limita a lista a no máximo 10 itens
-
+# Exibe os itens recomendados
 print("\nItens recomendados para você:")
 print(itens_recomendados.to_string(index=False))
