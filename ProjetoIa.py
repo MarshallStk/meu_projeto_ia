@@ -12,28 +12,28 @@ def obterGenero(tipo):
     Obtém a lista de gêneros de filmes ou séries da API TMDb.
     Retorna um dicionário onde a chave é o nome do gênero e o valor é o ID do gênero.
     """
-    url = f"{URL_BASE}/genre/{tipo}/list"  # Endpoint para gêneros
-    params = {'api_key': CHAVE_API, 'language': 'pt-BR'}  # Parâmetros da API
-    response = requests.get(url, params=params)  # Faz a requisição para a API
-    generos = response.json()['genres']  # Extrai os gêneros da resposta
-    return {genero['name']: genero['id'] for genero in generos}  # Retorna os gêneros como um dicionário
+    url = f"{URL_BASE}/genre/{tipo}/list" # URL para acessar a lista de gêneros
+    params = {'api_key': CHAVE_API, 'language': 'pt-BR'}  # Autentica a requisição e retorna em pt-br
+    resultado = requests.get(url, params=params)  # Faz a requisição para a API
+    generos = resultado.json()['genres']  # Extrai os gêneros da resposta
+    return {genero['name']: genero['id'] for genero in generos}  # Retorna os gêneros
 
 def buscaPopular(tipo):
     """
     Busca uma lista de filmes ou séries populares e bem avaliados da API.
     Retorna os resultados como uma lista de dicionários.
     """
-    url = f"{URL_BASE}/discover/{tipo}"  # Endpoint para descoberta de itens
+    url = f"{URL_BASE}/discover/{tipo}"  # Monta a URL para acessar o recurso de descoberta de itens do tipo especificado
     params = {
-        'api_key': CHAVE_API,
+        'api_key': CHAVE_API, # have de autenticação
         'language': 'pt-BR',
         'vote_average.gte': 7,  # Avaliação mínima de 7
         'vote_count.gte': 100,  # Pelo menos 100 avaliações
         'sort_by': 'popularity.desc',  # Ordenar por popularidade
         'page': 1  # Apenas a primeira página de resultados
     }
-    response = requests.get(url, params=params)  # Faz a requisição para a API
-    return response.json()['results']  # Retorna os itens populares diretamente
+    resposta = requests.get(url, params=params)  # Faz a requisição para a API
+    return resposta.json()['results']  # Retorna os itens populares diretamente
 
 def avaliacao(generos):
     """
@@ -105,7 +105,6 @@ def agrupamento(itens_df):
     itens_recomendados = itens_recomendados.sort_values(by='vote_average', ascending=False)
     return itens_recomendados[['title', 'vote_average', 'vote_count', 'pontuacao_usuario', 'pontuacao_final']]
 
-# Fluxo principal
 tipo = input("Deseja recomendação de 'filme' ou 'série'? ").strip().lower()
 tipo_api = 'movie' if tipo == 'filme' else 'tv'  # Define o tipo com base na escolha do usuário
 generos = obterGenero(tipo_api)  # Obtém os gêneros disponíveis
