@@ -93,7 +93,6 @@ def recomendacao(populares, avaliacoes_generos):
     return df
 
 def agrupamento(itens_df):
-    
     mean_shift = MeanShift()  # Configura o algoritmo MeanShift
     # Aplica o clustering baseado na pontuação final
     itens_df['cluster'] = mean_shift.fit_predict(itens_df[['pontuacao_final']])
