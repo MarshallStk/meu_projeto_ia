@@ -67,7 +67,7 @@ def avaliacao(generos):
     return avaliacoes
 
 def recomendacao(populares, avaliacoes_generos):
-    itens_detalhados = []  # Lista para armazenar os detalhes dos itens
+    itens_detalhados = []  # Lista para armazenar os detalhes dos iten
     for item in populares:
         # Extrai os detalhes básicos do item
         detalhes = {
